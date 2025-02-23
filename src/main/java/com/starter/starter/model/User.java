@@ -1,7 +1,6 @@
 package com.starter.starter.model;
 
 import jakarta.persistence.*;
-import org.springframework.boot.autoconfigure.web.WebProperties;
 
 @Entity
 @Table(name="users")
@@ -15,10 +14,10 @@ public class User {
     private String password;
     private String type;
     private boolean status;
-    @Lob
-    private byte[] photo;
 
-    public User(Long id, String fname, String lname, String email, String password, String type, boolean status, byte[] photo) {
+    private String photoUrl;
+
+    public User(Long id, String fname, String lname, String email, String password, String type, boolean status, String photoUrl) {
         this.id = id;
         this.fname = fname;
         this.lname = lname;
@@ -26,17 +25,17 @@ public class User {
         this.password = password;
         this.type = type;
         this.status = status;
-        this.photo = photo;
+        this.photoUrl = photoUrl;
     }
 
-    public User(Long id, String fname, String lname, String email, String password, String type, byte[] photo) {
+    public User(Long id, String fname, String lname, String email, String password, String type, String photoUrl) {
         this.id = id;
         this.fname = fname;
         this.lname = lname;
         this.email = email;
         this.password = password;
         this.type = type;
-        this.photo = photo;
+        this.photoUrl = photoUrl;
     }
 
     // default constructor
@@ -58,6 +57,12 @@ public class User {
         this.password = password;
     }
 
+    public boolean isStatus() {
+        return status;
+    }
+    public void setStatus(boolean status) {
+        this.status = status;
+    }
     public Long getId() {
         return id;
     }
@@ -94,10 +99,10 @@ public class User {
     public void setType(String type) {
         this.type = type;
     }
-    public byte[] getPhoto() {
-        return photo;
+    public String getPhotoUrl() {
+        return photoUrl;
     }
-    public void setPhoto(byte[] photo) {
-        this.photo = photo;
+    public void setPhotoUrl(String photoUrl) {
+        this.photoUrl = photoUrl;
     }
 }
