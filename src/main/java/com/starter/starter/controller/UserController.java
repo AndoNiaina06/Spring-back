@@ -2,6 +2,7 @@ package com.starter.starter.controller;
 
 
 import com.starter.starter.repository.UserRepo;
+import com.starter.starter.services.EmailService;
 import com.starter.starter.services.UserServiceImp;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -29,7 +30,8 @@ public class UserController {
     @Autowired
     private UserRepo userRepo;
     private static final String UPLOAD_DIR = "C:\\Users\\Ando Niaina\\Documents\\Front-end\\public\\image";
-
+    @Autowired
+    private EmailService emailService;
 
     @PostMapping("/register")
     public ResponseEntity<User> register(@RequestBody User user){
@@ -83,7 +85,7 @@ public class UserController {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Utilisateur non trouvé"));
             }
 
-            // Générer un nom de fichier unique
+            
             String fileName = UUID.randomUUID() + "_" + file.getOriginalFilename();
             Path filePath = Paths.get(UPLOAD_DIR, fileName);
 
@@ -116,16 +118,51 @@ public class UserController {
             return ResponseEntity.badRequest().body("Les mots de passe ne peuvent pas être vides");
         }
 
-        // Vérifier si l'ancien mot de passe est correct
         if (!existingUser.getPassword().equals(oldPassword)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Ancien mot de passe incorrect");
         }
 
-        // Mettre à jour le mot de passe
         existingUser.setPassword(newPassword);
         userRepo.save(existingUser);
 
         return ResponseEntity.ok("Mot de passe mis à jour avec succès");
+    }
+    @PatchMapping("/reset-password/{email}")
+    public ResponseEntity<?> resetPassword(@PathVariable String email, @RequestBody Map<String, String> request) {
+        String newPassword = request.get("password");
+
+        if (newPassword == null || newPassword.isEmpty()) {
+            return ResponseEntity.badRequest().body("{\"message\": \"Password cannot be empty\"}");
+        }
+
+        boolean updated = userService.updatePasswordByEmail(email, newPassword);
+
+        if (updated) {
+            return ResponseEntity.ok().body("{\"message\": \"Password updated successfully\"}");
+        } else {
+            return ResponseEntity.status(404).body("{\"message\": \"User not found\"}");
+        }
+    }
+
+
+    @PostMapping("/sendCode")
+    public ResponseEntity<Map<String, String>> sendResetCode(@RequestBody Map<String, String> request) {
+        String email = request.get("email");
+        System.out.println("Email reçu: " + email);
+        User user = userRepo.findByEmail(email);
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Utilisateur non trouvé"));
+        }
+
+        String verificationCode;
+        try {
+            verificationCode = emailService.sendVerificationCode(email);
+            return ResponseEntity.ok(Map.of("code", verificationCode));
+        } catch (Exception e) {
+            e.printStackTrace(); // Log l'erreur complète
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Erreur lors de l'envoi du code"));
+        }
+
     }
 
 

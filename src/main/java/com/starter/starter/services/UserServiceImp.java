@@ -2,6 +2,7 @@ package com.starter.starter.services;
 
 import com.starter.starter.model.User;
 import com.starter.starter.repository.UserRepo;
+import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -36,13 +37,23 @@ public class UserServiceImp implements UserService{
             existingUser.setFname(userRequest.getFname());
             existingUser.setLname(userRequest.getLname());
             existingUser.setEmail(userRequest.getEmail());
-            existingUser.setType(userRequest.getType());
+            existingUser.setType(existingUser.getType());
             existingUser.setPhotoUrl(userRequest.getPhotoUrl());
 
-            return userRepo.save(existingUser); // Sauvegarde en base de données
+            return userRepo.save(existingUser);
         }
 
         return null;
     }
 
+    @Transactional
+    public boolean updatePasswordByEmail(String email, String newPassword) {
+        User user = userRepo.findByEmail(email);
+        if (user != null) {
+            user.setPassword(newPassword);
+            userRepo.save(user);
+            return true;
+        }
+        return false;
+    }
 }
