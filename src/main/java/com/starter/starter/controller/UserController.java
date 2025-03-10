@@ -7,6 +7,8 @@ import com.starter.starter.services.UserServiceImp;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 
@@ -16,8 +18,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 
 @RestController
@@ -32,6 +33,8 @@ public class UserController {
     private static final String UPLOAD_DIR = "C:\\Users\\Ando Niaina\\Documents\\Front-end\\public\\image";
     @Autowired
     private EmailService emailService;
+
+    private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     @PostMapping("/register")
     public ResponseEntity<User> register(@RequestBody User user){
@@ -48,20 +51,27 @@ public class UserController {
         }
     }
     @PostMapping("/login")
-    public ResponseEntity<Map<Object, Object>> login(@RequestBody User requestUser){
-        User user =userService.login(requestUser);
+    public ResponseEntity<Map<String, Object>> login(@RequestBody User requestUser) {
+        User user = userService.login(requestUser);
 
-        if(user != null){
-            String token = generateToken(user);
-            token =  token + token;
-
-            return ResponseEntity.ok(Map.of(
-                    "user", user,
-                    "token", token
-            ));
-        }else{
-            return ResponseEntity.notFound().build();
+        if (user == null) {
+            return ResponseEntity.status(404).body(Map.of("message", "Email not found"));
         }
+
+        if (user.getId() == null) {
+            return ResponseEntity.status(401).body(Map.of("message", "Invalid password"));
+        }
+
+        if (!user.isStatus()) {
+            return ResponseEntity.status(403).body(Map.of("message", "Your account is archived, contact support"));
+        }
+
+        String token = generateToken(user);
+
+        return ResponseEntity.ok(Map.of(
+                "user", user,
+                "token", token
+        ));
     }
     private String generateToken(User user) {
         return UUID.randomUUID().toString();
@@ -118,11 +128,11 @@ public class UserController {
             return ResponseEntity.badRequest().body("Les mots de passe ne peuvent pas être vides");
         }
 
-        if (!existingUser.getPassword().equals(oldPassword)) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Ancien mot de passe incorrect");
+        if (!passwordEncoder.matches(oldPassword, existingUser.getPassword())) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Please check your old Password");
         }
 
-        existingUser.setPassword(newPassword);
+        existingUser.setPassword(passwordEncoder.encode(newPassword));
         userRepo.save(existingUser);
 
         return ResponseEntity.ok("Mot de passe mis à jour avec succès");
@@ -164,7 +174,70 @@ public class UserController {
         }
 
     }
+    @PutMapping("archive/{id}")
+    public ResponseEntity <?> archiveUser(@PathVariable long id){
+        Optional<User> optionalUser = userRepo.findById(id);
 
+        if (optionalUser.isPresent()) {
+            User user = optionalUser.get();
+            user.setStatus(false);
+            userRepo.save(user);
+            return ResponseEntity.ok(Collections.singletonMap("message", "User archived successfully"));
+        } else {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Collections.singletonMap("error", "User not found"));
+        }
+    }
+    @DeleteMapping("/delete/{id}")
+    public ResponseEntity<?> deleteUser(@PathVariable Long id) {
+        Optional<User> optionalUser = userRepo.findById(id);
 
+        if (optionalUser.isPresent()) {
+            userRepo.deleteById(id);
+            return ResponseEntity.ok(Collections.singletonMap("message", "User deleted successfully"));
+        } else {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Collections.singletonMap("error", "User not found"));
+        }
+    }
+    @GetMapping("/user-types")
+    public ResponseEntity<Map<String, Long>> getUserTypes() {
+        Long totalAdmins = userRepo.countByType("admin");
+        Long totalUsers = userRepo.countByType("user");
+
+        Map<String, Long> stats = new HashMap<>();
+        stats.put("admins", totalAdmins);
+        stats.put("users", totalUsers);
+
+        return ResponseEntity.ok(stats);
+    }
+
+    // 🔹 2️⃣ Statistiques pour les utilisateurs par mois
+    @GetMapping("/users-per-month")
+    public ResponseEntity<Map<String, Long>> getUsersPerMonth() {
+        List<Object[]> results = userRepo.countUsersByMonth();
+        Map<String, Long> stats = new LinkedHashMap<>();
+
+        // Liste des noms des mois en français
+        String[] months = {
+                "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+                "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"
+        };
+
+        // Initialiser les mois à zéro pour éviter les valeurs nulles
+        for (String month : months) {
+            stats.put(month, 0L);
+        }
+
+        // Ajouter les valeurs récupérées de la base
+        for (Object[] row : results) {
+            String month = row[0].toString();
+            Long count = (Long) row[1];
+            int monthIndex = Integer.parseInt(month) - 1;  // Mois commence à 1
+            stats.put(months[monthIndex], count);
+        }
+
+        return ResponseEntity.ok(stats);
+    }
 
 }

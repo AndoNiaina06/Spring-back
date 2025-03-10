@@ -3,6 +3,8 @@ package com.starter.starter.services;
 import com.starter.starter.model.User;
 import com.starter.starter.repository.UserRepo;
 import jakarta.transaction.Transactional;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -15,16 +17,27 @@ public class UserServiceImp implements UserService{
     @Autowired
     private UserRepo userRepo;
 
+    private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+
     @Override
     public User saveUser(User user) {
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
         return userRepo.save(user);
     }
 
     @Override
     public User login(User user) {
         String email = user.getEmail();
+        User existingUser = userRepo.findByEmail(email);
 
-        return userRepo.findByEmail(email);
+        if (existingUser == null) {
+            return null;
+        }
+
+        if (!passwordEncoder.matches(user.getPassword(), existingUser.getPassword())) {
+            return new User();
+        }
+        return existingUser;
     }
 
     @Override
@@ -50,7 +63,7 @@ public class UserServiceImp implements UserService{
     public boolean updatePasswordByEmail(String email, String newPassword) {
         User user = userRepo.findByEmail(email);
         if (user != null) {
-            user.setPassword(newPassword);
+            user.setPassword(passwordEncoder.encode(newPassword));
             userRepo.save(user);
             return true;
         }

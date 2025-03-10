@@ -2,6 +2,8 @@ package com.starter.starter.model;
 
 import jakarta.persistence.*;
 
+import java.util.Date;
+
 @Entity
 @Table(name="users")
 public class User {
@@ -16,7 +18,14 @@ public class User {
     private boolean status;
 
     private String photoUrl;
+    @Column(name = "created_at", updatable = false)
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date createdAt;
 
+    @PrePersist
+    protected void onCreate() {
+        createdAt = new Date();
+    }
     public User(Long id, String fname, String lname, String email, String password, String type, boolean status, String photoUrl) {
         this.id = id;
         this.fname = fname;
